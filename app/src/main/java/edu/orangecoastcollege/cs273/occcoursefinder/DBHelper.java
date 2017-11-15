@@ -68,7 +68,16 @@ class DBHelper extends SQLiteOpenHelper {
 
         //TODO:  Write the query to create the relationship table "Offerings"
         //TODO:  Make sure to include foreign keys to the Courses and Instructors tables
-
+        createQuery = "CREATE TABLE " + OFFERINGS_TABLE + "("
+                + FIELD_CRN + " INTEGER, "
+                + FIELD_SEMESTER_CODE + " INTEGER, "
+                + FIELD_COURSE_ID + " INTEGER, "
+                + FIELD_INSTRUCTOR_ID + " INTEGER, "
+                + "FOREIGN KEY(" + FIELD_COURSE_ID + ") REFERENCES "
+                + COURSES_TABLE + "(" + COURSES_KEY_FIELD_ID + "), "
+                + "FOREIGN KEY(" + FIELD_INSTRUCTOR_ID + ") REFERENCES "
+                + INSTRUCTORS_TABLE + "(" + INSTRUCTORS_KEY_FIELD_ID + "))";
+        database.execSQL(createQuery);
     }
 
     @Override
@@ -273,8 +282,98 @@ class DBHelper extends SQLiteOpenHelper {
     //TODO:  Create the following methods: addOffering, getAllOfferings, deleteOffering
     //TODO:  deleteAllOfferings, updateOffering, and getOffering
     //TODO:  Use the Courses and Instructors methods above as a guide.
+    public void addOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
 
+        values.put(FIELD_CRN, offering.getCRN());
+        values.put(FIELD_SEMESTER_CODE, offering.getSemesterCode());
+        values.put(FIELD_COURSE_ID, offering.getCourse().getId());
+        values.put(FIELD_INSTRUCTOR_ID, offering.getInstructor().getId());
 
+        db.insert(OFFERINGS_TABLE, null, values);
+
+        // CLOSE THE DATABASE CONNECTION
+        db.close();
+    }
+
+    public List<Offering> getAllOfferings() {
+        List<Offering> offeringsList = new ArrayList<>();
+        SQLiteDatabase database = this.getReadableDatabase();
+        Cursor cursor = database.query(
+                OFFERINGS_TABLE,
+                new String[]{FIELD_CRN, FIELD_SEMESTER_CODE, FIELD_COURSE_ID, FIELD_INSTRUCTOR_ID},
+                null,
+                null,
+                null, null, null, null);
+
+        //COLLECT EACH ROW IN THE TABLE
+        if (cursor.moveToFirst()) {
+            do {
+                Offering offering =
+                        new Offering(cursor.getInt(0),
+                                cursor.getInt(1),
+                                getCourse(cursor.getInt(2)),
+                                getInstructor(cursor.getInt(3)));
+                offeringsList.add(offering);
+            } while (cursor.moveToNext());
+        }
+        cursor.close();
+        database.close();
+        return offeringsList;
+    }
+
+    public void deleteOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
+
+        // DELETE THE TABLE ROW
+        db.delete(OFFERINGS_TABLE, FIELD_CRN + " = ?",
+                new String[]{String.valueOf(offering.getCRN())});
+        db.close();
+    }
+
+    public void deleteAllOfferings() {
+        SQLiteDatabase db = this.getWritableDatabase();
+        db.delete(OFFERINGS_TABLE, null, null);
+        db.close();
+    }
+
+    public void updateOffering(Offering offering) {
+        SQLiteDatabase db = this.getWritableDatabase();
+        ContentValues values = new ContentValues();
+
+        values.put(FIELD_CRN, offering.getCRN());
+        values.put(FIELD_SEMESTER_CODE, offering.getSemesterCode());
+        values.put(FIELD_COURSE_ID, offering.getCourse().getId());
+        values.put(FIELD_INSTRUCTOR_ID, offering.getInstructor().getId());
+
+        db.update(OFFERINGS_TABLE, values, FIELD_CRN + " = ?",
+                new String[]{String.valueOf(offering.getCRN())});
+        db.close();
+    }
+
+    public Offering getOffering(int id) {
+        SQLiteDatabase db = this.getReadableDatabase();
+        Cursor cursor = db.query(
+                OFFERINGS_TABLE,
+                new String[]{FIELD_CRN, FIELD_SEMESTER_CODE, FIELD_COURSE_ID, FIELD_INSTRUCTOR_ID},
+                FIELD_CRN + "=?",
+                new String[]{String.valueOf(id)},
+                null, null, null, null);
+
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        Offering offering = new Offering(
+                cursor.getInt(0),
+                cursor.getInt(1),
+                getCourse(cursor.getInt(2)),
+                getInstructor(cursor.getInt(3)));
+
+        cursor.close();
+        db.close();
+        return offering;
+    }
 
 
 
@@ -340,6 +439,37 @@ class DBHelper extends SQLiteOpenHelper {
                 String firstName = fields[2].trim();
                 String email = fields[3].trim();
                 addInstructor(new Instructor(id, lastName, firstName, email));
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+            return false;
+        }
+        return true;
+    }
+
+    public boolean importOfferingsFromCSV(String csvFileName) {
+        AssetManager am = mContext.getAssets();
+        InputStream inStream = null;
+        try {
+            inStream = am.open(csvFileName);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        BufferedReader buffer = new BufferedReader(new InputStreamReader(inStream));
+        String line;
+        try {
+            while ((line = buffer.readLine()) != null) {
+                String[] fields = line.split(",");
+                if (fields.length != 4) {
+                    Log.d("OCC Course Finder", "Skipping Bad CSV Row: " + Arrays.toString(fields));
+                    continue;
+                }
+                int crn = Integer.parseInt(fields[0].trim());
+                int semesterId = Integer.parseInt(fields[1].trim());
+                int courseId = Integer.parseInt(fields[2].trim());
+                int instructorId = Integer.parseInt(fields[3].trim());
+                addOffering(new Offering(crn, semesterId, getCourse(courseId), getInstructor(instructorId)));
             }
         } catch (IOException e) {
             e.printStackTrace();

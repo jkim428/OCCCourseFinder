@@ -21,7 +21,7 @@ public class CourseSearchActivity extends AppCompatActivity {
         db.importCoursesFromCSV("courses.csv");
         db.importInstructorsFromCSV("instructors.csv");
         //TODO: Create the method importOfferingsFromCSV, then use it in this activity.
-
+        db.importOfferingsFromCSV("offerings.csv");
 
         List<Course> allCourses = db.getAllCourses();
         for (Course course : allCourses)
@@ -32,6 +32,9 @@ public class CourseSearchActivity extends AppCompatActivity {
             Log.i(TAG, instructor.toString());
 
         //TODO: Get all the offerings from the database, then print them out to the Log
+        List<Offering> allOfferings = db.getAllOfferings();
+        for (Offering offering : allOfferings)
+            Log.i(TAG, offering.toString());
 
 
     }
